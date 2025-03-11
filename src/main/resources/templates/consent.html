@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="https://www.thymeleaf.org">
+<head>
+    <title>Authorization Consent</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .consent-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+        h2 {
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+        .client-name {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 1rem;
+        }
+        .scopes {
+            margin: 1rem 0;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .scope-item {
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background-color: white;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .approve {
+            background-color: #28a745;
+            color: white;
+        }
+        .deny {
+            background-color: #dc3545;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="consent-container">
+        <h2>Authorization Request</h2>
+        <p class="client-name" th:text="${client.clientName}">Client Name</p>
+        <p>This application would like to access your account with the following permissions:</p>
+        <div class="scopes">
+            <div class="scope-item" th:each="scope : ${scopes}" th:text="${scope}">Scope</div>
+        </div>
+        <form th:action="@{/oauth2/authorize/consent}" method="post">
+            <input type="hidden" name="client_id" th:value="${client.clientId}">
+            <input type="hidden" name="redirect_uri" th:value="${redirectUri}">
+            <input type="hidden" name="scope" th:value="${#strings.listJoin(scopes, ' ')}">
+            <input type="hidden" name="state" th:value="${state}">
+            <div class="buttons">
+                <button type="submit" name="consent" value="approve" class="approve">Approve</button>
+                <button type="submit" name="consent" value="deny" class="deny">Deny</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html> 
