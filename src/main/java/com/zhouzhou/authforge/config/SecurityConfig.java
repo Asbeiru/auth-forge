@@ -10,6 +10,17 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Spring Security 配置类
+ * 
+ * 配置 OAuth 2.0 授权服务器的安全策略：
+ * 1. 请求授权规则
+ * 2. 表单登录配置
+ * 3. 会话管理
+ * 4. 密码编码器
+ * 
+ * 确保 OAuth 2.0 端点的安全性和可访问性
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {

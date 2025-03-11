@@ -1,5 +1,16 @@
 package com.zhouzhou.authforge.constant;
 
+/**
+ * OAuth 2.0 常量定义类
+ * 
+ * 定义 OAuth 2.0 规范中的常量：
+ * 1. 响应类型
+ * 2. 授权类型
+ * 3. PKCE 方法
+ * 4. 错误码
+ * 
+ * 参考 OAuth 2.0 规范 RFC 6749
+ */
 public class OAuth2Constants {
     public static final String RESPONSE_TYPE_CODE = "code";
     public static final String GRANT_TYPE_AUTHORIZATION_CODE = "authorization_code";

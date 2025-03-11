@@ -9,6 +9,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.util.UriComponentsBuilder;
 
+/**
+ * OAuth 2.0 授权确认控制器
+ * 
+ * 处理 /oauth2/authorize/consent 端点的用户授权确认请求
+ * 负责：
+ * 1. 处理用户对授权请求的同意或拒绝
+ * 2. 记录用户的授权决定
+ * 3. 根据用户的选择生成授权码或返回错误
+ * 
+ * @see OAuth2AuthorizationService
+ */
 @Controller
 @RequiredArgsConstructor
 public class ConsentController {

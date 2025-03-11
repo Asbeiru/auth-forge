@@ -28,6 +28,19 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * OAuth 2.0 授权服务实现类
+ * 
+ * 实现 OAuth 2.0 授权码授权流程的核心业务逻辑：
+ * 1. 验证授权请求参数
+ * 2. 验证客户端信息
+ * 3. 处理用户授权确认
+ * 4. 生成授权码
+ * 5. 支持 PKCE 扩展（RFC 7636）
+ * 
+ * @see OAuth2AuthorizationService
+ * @see OAuth2Constants
+ */
 @Service
 @Transactional
 @RequiredArgsConstructor
