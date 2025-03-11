@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>OAuth2 Test Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .result { margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>OAuth2 Test Client</h1>
+    
+    <h2>1. 发起授权请求</h2>
+    <button class="button" onclick="startAuth()">开始授权</button>
+
+    <div class="result">
+        <h3>授权码</h3>
+        <p id="authCode"></p>
+    </div>
+
+    <script>
+        function startAuth() {
+            const authUrl = 'http://localhost:9000/oauth2/authorize' +
+                '?response_type=code' +
+                '&client_id=test-client' +
+                '&redirect_uri=http://127.0.0.1:8080/callback' +
+                '&scope=read';
+            window.location.href = authUrl;
+        }
+
+        // 解析URL中的授权码
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        if (code) {
+            document.getElementById('authCode').textContent = code;
+        }
+    </script>
+</body>
+</html> 

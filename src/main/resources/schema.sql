@@ -119,4 +119,18 @@ CREATE TABLE IF NOT EXISTS oauth_consents (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES oauth_clients(client_id),
     UNIQUE KEY uk_client_user (client_id, user_id)
+);
+
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(200) NOT NULL,
+    authorities VARCHAR(200) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    account_non_expired BOOLEAN NOT NULL DEFAULT TRUE,
+    account_non_locked BOOLEAN NOT NULL DEFAULT TRUE,
+    credentials_non_expired BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ); 
