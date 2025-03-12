@@ -1,55 +1,45 @@
 package com.zhouzhou.authforge.service.impl;
 
-import com.zhouzhou.authforge.authentication.OAuth2Authorization;
-import com.zhouzhou.authforge.authentication.OAuth2AuthorizationRequest;
-import com.zhouzhou.authforge.constant.OAuth2Constants;
 import com.zhouzhou.authforge.dto.AuthorizationResult;
 import com.zhouzhou.authforge.exception.OAuth2AuthorizationException;
 import com.zhouzhou.authforge.model.OAuthAuthorization;
 import com.zhouzhou.authforge.model.OAuthClient;
-import com.zhouzhou.authforge.model.OAuthConsent;
 import com.zhouzhou.authforge.repository.OAuthAuthorizationRepository;
-import com.zhouzhou.authforge.repository.OAuthClientRepository;
-import com.zhouzhou.authforge.repository.OAuthConsentRepository;
+import com.zhouzhou.authforge.service.OAuth2AuthorizationCodeService;
 import com.zhouzhou.authforge.service.OAuth2AuthorizationService;
-import com.zhouzhou.authforge.util.OAuth2Utils;
+import com.zhouzhou.authforge.service.OAuth2ClientService;
+import com.zhouzhou.authforge.service.OAuth2ConsentService;
+import com.zhouzhou.authforge.validator.OAuth2AuthorizationRequestValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.keygen.Base64StringKeyGenerator;
-import org.springframework.security.crypto.keygen.StringKeyGenerator;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
-/**
- * OAuth 2.0 授权服务实现类
- * 
- * 实现 OAuth 2.0 授权码授权流程的核心业务逻辑：
- * 1. 验证授权请求参数
- * 2. 验证客户端信息
- * 3. 处理用户授权确认
- * 4. 生成授权码
- * 5. 支持 PKCE 扩展（RFC 7636）
- * 
- * @see OAuth2AuthorizationService
- * @see OAuth2Constants
- */
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class OAuth2AuthorizationServiceImpl implements OAuth2AuthorizationService {
 
-    private final OAuthClientRepository clientRepository;
+    private final OAuth2ClientService clientService;
     private final OAuthAuthorizationRepository authorizationRepository;
-    private final OAuthConsentRepository consentRepository;
-    private final StringKeyGenerator codeGenerator = new Base64StringKeyGenerator(32);
+    private final OAuth2AuthorizationRequestValidator requestValidator;
+    private final OAuth2AuthorizationCodeService authorizationCodeService;
+    private final OAuth2ConsentService consentService;
 
     @Override
     @Transactional
@@ -62,177 +52,74 @@ public class OAuth2AuthorizationServiceImpl implements OAuth2AuthorizationServic
             Map<String, Object> additionalParameters,
             Authentication authentication) {
 
-        // 1. 验证响应类型
-        if (!OAuth2Constants.RESPONSE_TYPE_CODE.equals(responseType)) {
-            return AuthorizationResult.builder()
-                    .resultType(AuthorizationResult.ResultType.REDIRECT_WITH_ERROR)
-                    .redirectUri(redirectUri)
-                    .error(OAuth2Constants.ERROR_UNSUPPORTED_RESPONSE_TYPE)
-                    .errorDescription("Unsupported response type: " + responseType)
-                    .state(state)
-                    .build();
-        }
+        try {
+            // 1. 验证请求参数
+            requestValidator.validateAuthorizationRequest(
+                    clientId,
+                    responseType,
+                    redirectUri,
+                    scope,
+                    state,
+                    additionalParameters
+            );
 
-        // 2. 获取并验证客户端
-        OAuthClient client = clientRepository.findByClientId(clientId)
-                .orElseThrow(() -> new OAuth2AuthorizationException(
-                        OAuth2Constants.ERROR_UNAUTHORIZED_CLIENT,
-                        "Client not found",
-                        redirectUri,
-                        state));
+            // 2. 获取客户端信息
+            OAuthClient client = clientService.findByClientId(clientId)
+                    .orElseThrow(() -> new OAuth2AuthorizationException(
+                            "unauthorized_client",
+                            "Client not found",
+                            redirectUri,
+                            state));
 
-        // 3. 验证重定向URI
-        if (!client.getRedirectUris().contains(redirectUri)) {
-            return AuthorizationResult.builder()
-                    .resultType(AuthorizationResult.ResultType.REDIRECT_WITH_ERROR)
-                    .redirectUri(redirectUri)
-                    .error(OAuth2Constants.ERROR_INVALID_REQUEST)
-                    .errorDescription("Invalid redirect_uri")
-                    .state(state)
-                    .build();
-        }
+            // 3. 检查是否需要用户同意
+            if (consentService.isConsentRequired(client, authentication, scope)) {
+                // 创建并保存授权请求记录，包含traceId和responseType
+                OAuthAuthorization pendingAuthorization = new OAuthAuthorization();
+                pendingAuthorization.setClientId(clientId);
+                pendingAuthorization.setUserId(authentication.getName());
+                pendingAuthorization.setScopes(scope);
+                pendingAuthorization.setState(state);
+                pendingAuthorization.setRedirectUri(redirectUri);
+                pendingAuthorization.setResponseType(responseType);  // 保存授权类型
+                pendingAuthorization.setTraceId(UUID.randomUUID().toString());
+                authorizationRepository.save(pendingAuthorization);
 
-        // 4. 验证作用域
-        Set<String> requestedScopes = scope != null ?
-                new HashSet<>(Arrays.asList(scope.split(" "))) :
-                new HashSet<>();
-        Set<String> allowedScopes = new HashSet<>(Arrays.asList(client.getScopes().split(" ")));
-        if (!allowedScopes.containsAll(requestedScopes)) {
-            return AuthorizationResult.builder()
-                    .resultType(AuthorizationResult.ResultType.REDIRECT_WITH_ERROR)
-                    .redirectUri(redirectUri)
-                    .error(OAuth2Constants.ERROR_INVALID_SCOPE)
-                    .errorDescription("Invalid scope requested")
-                    .state(state)
-                    .build();
-        }
-
-        // 5. 检查是否需要用户同意
-        if (!client.getAutoApprove()) {
-            Optional<OAuthConsent> consent = consentRepository.findByClientIdAndUserId(
-                    clientId, authentication.getName());
-            if (consent.isEmpty()) {
                 return AuthorizationResult.builder()
                         .resultType(AuthorizationResult.ResultType.SHOW_CONSENT_PAGE)
                         .client(client)
-                        .scopes(requestedScopes)
+                        .scopes(new HashSet<>(Arrays.asList(scope.split(" "))))
                         .redirectUri(redirectUri)
                         .state(state)
+                        .traceId(pendingAuthorization.getTraceId())  // 传递traceId到同意页面
                         .build();
             }
-        }
 
-        // 6. 验证授权类型
-        if (!client.getAuthorizedGrantTypes().contains("authorization_code")) {
+            // 4. 如果不需要用户同意，直接生成授权码
+            OAuthAuthorization authorization = authorizationCodeService.createAuthorizationCode(
+                    client,
+                    authentication,
+                    scope,
+                    state,
+                    redirectUri,
+                    additionalParameters
+            );
+
+            return AuthorizationResult.builder()
+                    .resultType(AuthorizationResult.ResultType.REDIRECT_WITH_CODE)
+                    .redirectUri(redirectUri)
+                    .code(authorization.getAuthorizationCode())
+                    .state(state)
+                    .build();
+
+        } catch (OAuth2AuthorizationException e) {
             return AuthorizationResult.builder()
                     .resultType(AuthorizationResult.ResultType.REDIRECT_WITH_ERROR)
                     .redirectUri(redirectUri)
-                    .error(OAuth2Constants.ERROR_UNAUTHORIZED_CLIENT)
-                    .errorDescription("Client is not authorized for authorization_code grant type")
+                    .error(e.getError())
+                    .errorDescription(e.getMessage())
                     .state(state)
                     .build();
         }
-
-        // 7. 生成授权码
-        return createAuthorizationCode(client, authentication, scope, state, redirectUri, additionalParameters);
-    }
-
-    @Override
-    @Transactional
-    public AuthorizationResult handleAuthorizationConsent(
-            String clientId,
-            String redirectUri,
-            String scope,
-            String state,
-            String consent,
-            Authentication authentication) {
-
-        // 1. 验证客户端
-        OAuthClient client = clientRepository.findByClientId(clientId)
-                .orElseThrow(() -> new OAuth2AuthorizationException(
-                        OAuth2Constants.ERROR_UNAUTHORIZED_CLIENT,
-                        "Client not found",
-                        redirectUri,
-                        state));
-
-        // 2. 处理用户拒绝授权的情况
-        if (!"approve".equals(consent)) {
-            return AuthorizationResult.builder()
-                    .resultType(AuthorizationResult.ResultType.REDIRECT_WITH_ERROR)
-                    .redirectUri(redirectUri)
-                    .error(OAuth2Constants.ERROR_ACCESS_DENIED)
-                    .errorDescription("User denied access")
-                    .state(state)
-                    .build();
-        }
-
-        // 3. 保存用户同意记录
-        OAuthConsent consentRecord = new OAuthConsent();
-        consentRecord.setClientId(clientId);
-        consentRecord.setUserId(authentication.getName());
-        consentRecord.setScopes(scope);
-        consentRepository.save(consentRecord);
-
-        // 4. 生成授权码
-        return createAuthorizationCode(client, authentication, scope, state, redirectUri, Collections.emptyMap());
-    }
-
-    private AuthorizationResult createAuthorizationCode(
-            OAuthClient client,
-            Authentication authentication,
-            String scope,
-            String state,
-            String redirectUri,
-            Map<String, Object> additionalParameters) {
-
-        String code = codeGenerator.generateKey();
-        OAuthAuthorization authorization = new OAuthAuthorization();
-        authorization.setClientId(client.getClientId());
-        authorization.setUserId(authentication.getName());
-        authorization.setScopes(scope);
-        authorization.setAuthorizationCode(code);
-        authorization.setState(state);
-        authorization.setAuthorizationCodeExpiresAt(LocalDateTime.now().plusMinutes(10));
-
-        if (additionalParameters != null) {
-            authorization.setCodeChallenge((String) additionalParameters.get("code_challenge"));
-            authorization.setCodeChallengeMethod((String) additionalParameters.get("code_challenge_method"));
-        }
-
-        authorizationRepository.save(authorization);
-
-        return AuthorizationResult.builder()
-                .resultType(AuthorizationResult.ResultType.REDIRECT_WITH_CODE)
-                .redirectUri(redirectUri)
-                .code(code)
-                .state(state)
-                .build();
-    }
-
-    @Override
-    public boolean isConsentRequired(String clientId, String userId, Set<String> requestedScopes) {
-        // 获取客户端信息
-        OAuthClient client = clientRepository.findByClientId(clientId)
-                .orElseThrow(() -> new OAuth2AuthorizationException(
-                        OAuth2Constants.ERROR_UNAUTHORIZED_CLIENT,
-                        "Client not found",
-                        null,
-                        null));
-
-        // 如果客户端配置为自动批准，则不需要用户同意
-        if (client.getAutoApprove()) {
-            return false;
-        }
-
-        // 检查是否已有用户同意记录
-        Optional<OAuthConsent> consent = consentRepository.findByClientIdAndUserId(clientId, userId);
-        if (consent.isEmpty()) {
-            return true;
-        }
-
-        // 检查已同意的作用域是否包含所有请求的作用域
-        Set<String> authorizedScopes = new HashSet<>(Arrays.asList(consent.get().getScopes().split(" ")));
-        return !authorizedScopes.containsAll(requestedScopes);
     }
 
 
@@ -242,60 +129,107 @@ public class OAuth2AuthorizationServiceImpl implements OAuth2AuthorizationServic
     }
 
     @Override
-    @Transactional
-    public void validateAuthorizationCode(
-            String code,
-            String clientId,
-            String redirectUri,
-            String codeVerifier) {
-
-        OAuthAuthorization authorization = authorizationRepository.findByAuthorizationCode(code)
+    public boolean isConsentRequired(String clientId, String userId, Set<String> requestedScopes) {
+        OAuthClient client = clientService.findByClientId(clientId)
                 .orElseThrow(() -> new OAuth2AuthorizationException(
-                        OAuth2Constants.ERROR_INVALID_REQUEST,
-                        "Invalid authorization code",
+                        "unauthorized_client",
+                        "Client not found",
                         null,
                         null));
 
+        return consentService.isConsentRequired(
+                client,
+                new Authentication() {
+                    @Override
+                    public String getName() {
+                        return userId;
+                    }
+
+                    @Override
+                    public Collection<? extends GrantedAuthority> getAuthorities() {
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public Object getCredentials() {
+                        return null;
+                    }
+
+                    @Override
+                    public Object getDetails() {
+                        return null;
+                    }
+
+                    @Override
+                    public Object getPrincipal() {
+                        return userId;
+                    }
+
+                    @Override
+                    public boolean isAuthenticated() {
+                        return true;
+                    }
+
+                    @Override
+                    public void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException {
+                        throw new UnsupportedOperationException();
+                    }
+                },
+                String.join(" ", requestedScopes)
+        );
+    }
+
+    @Override
+    public void validateAuthorizationCode(String code, String clientId, String redirectUri, String codeVerifier) {
+        OAuthAuthorization authorization = findByCode(code)
+                .orElseThrow(() -> new OAuth2AuthorizationException(
+                        "invalid_grant",
+                        "Invalid authorization code",
+                        redirectUri,
+                        null));
+
         // 验证授权码是否过期
-        if (authorization.getAuthorizationCodeExpiresAt().isBefore(LocalDateTime.now())) {
+        if (authorization.getAuthorizationCodeExpiresAt() != null &&
+                authorization.getAuthorizationCodeExpiresAt().isBefore(LocalDateTime.now())) {
             throw new OAuth2AuthorizationException(
-                    OAuth2Constants.ERROR_INVALID_REQUEST,
-                    "Authorization code expired",
-                    null,
+                    "invalid_grant",
+                    "Authorization code has expired",
+                    redirectUri,
                     null);
         }
 
-        // 验证客户端ID
+        // 验证客户端ID是否匹配
         if (!authorization.getClientId().equals(clientId)) {
             throw new OAuth2AuthorizationException(
-                    OAuth2Constants.ERROR_INVALID_REQUEST,
+                    "invalid_grant",
                     "Client ID mismatch",
-                    null,
+                    redirectUri,
                     null);
         }
 
-        // 验证PKCE
-        if (authorization.getCodeChallenge() != null) {
-            if (codeVerifier == null) {
-                throw new OAuth2AuthorizationException(
-                        OAuth2Constants.ERROR_INVALID_REQUEST,
-                        "Code verifier required",
-                        null,
-                        null);
-            }
+        // 验证重定向URI是否匹配
+        if (!authorization.getRedirectUri().equals(redirectUri)) {
+            throw new OAuth2AuthorizationException(
+                    "invalid_grant",
+                    "Redirect URI mismatch",
+                    redirectUri,
+                    null);
+        }
 
-            String computedChallenge;
-            if (OAuth2Constants.CODE_CHALLENGE_METHOD_S256.equals(authorization.getCodeChallengeMethod())) {
-                computedChallenge = generateS256CodeChallenge(codeVerifier);
+        // 如果存在code_verifier，验证PKCE
+        if (codeVerifier != null && authorization.getCodeChallenge() != null) {
+            String computedCodeChallenge;
+            if ("S256".equals(authorization.getCodeChallengeMethod())) {
+                computedCodeChallenge = generateS256CodeChallenge(codeVerifier);
             } else {
-                computedChallenge = codeVerifier;
+                computedCodeChallenge = codeVerifier;
             }
 
-            if (!authorization.getCodeChallenge().equals(computedChallenge)) {
+            if (!computedCodeChallenge.equals(authorization.getCodeChallenge())) {
                 throw new OAuth2AuthorizationException(
-                        OAuth2Constants.ERROR_INVALID_REQUEST,
+                        "invalid_grant",
                         "Invalid code verifier",
-                        null,
+                        redirectUri,
                         null);
             }
         }
@@ -307,132 +241,7 @@ public class OAuth2AuthorizationServiceImpl implements OAuth2AuthorizationServic
             byte[] digest = md.digest(codeVerifier.getBytes(StandardCharsets.US_ASCII));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private OAuthClient validateClient(String clientId) {
-        return clientRepository.findByClientId(clientId)
-                .orElseThrow(() -> new OAuth2AuthorizationException(
-                        OAuth2Constants.ERROR_INVALID_REQUEST,
-                        "Invalid client_id",
-                        null,
-                        null
-                ));
-    }
-
-    private void validateRequest(OAuth2AuthorizationRequest request, OAuthClient client) {
-        // 验证response_type
-        if (!OAuth2Constants.RESPONSE_TYPE_CODE.equals(request.getResponseType())) {
-            throw new OAuth2AuthorizationException(
-                    OAuth2Constants.ERROR_UNSUPPORTED_RESPONSE_TYPE,
-                    "Response type must be 'code'",
-                    request.getRedirectUri(),
-                    request.getState()
-            );
-        }
-
-        // 验证redirect_uri
-        Set<String> allowedRedirectUris = OAuth2Utils.parseRedirectUris(client.getRedirectUris());
-        if (!allowedRedirectUris.contains(request.getRedirectUri())) {
-            throw new OAuth2AuthorizationException(
-                    OAuth2Constants.ERROR_INVALID_REQUEST,
-                    "Invalid redirect_uri",
-                    request.getRedirectUri(),
-                    request.getState()
-            );
-        }
-
-        // 验证授权类型
-        if (!client.getAuthorizedGrantTypes().contains(OAuth2Constants.GRANT_TYPE_AUTHORIZATION_CODE)) {
-            throw new OAuth2AuthorizationException(
-                    OAuth2Constants.ERROR_UNAUTHORIZED_CLIENT,
-                    "Client is not authorized for authorization_code grant",
-                    request.getRedirectUri(),
-                    request.getState()
-            );
-        }
-
-        // 验证scope
-        validateScopes(request.getScopes(), client);
-    }
-
-    private void validateScopes(Set<String> requestedScopes, OAuthClient client) {
-        Set<String> allowedScopes = OAuth2Utils.parseScopes(client.getScopes());
-        if (!allowedScopes.containsAll(requestedScopes)) {
-            throw new OAuth2AuthorizationException(
-                    OAuth2Constants.ERROR_INVALID_SCOPE,
-                    "Invalid scope requested",
-                    null,
-                    null
-            );
-        }
-    }
-
-    private OAuth2Authorization createAuthorization(
-            Set<String> scopes,
-            Authentication principal,
-            OAuthClient client) {
-
-        String code = codeGenerator.generateKey();
-        LocalDateTime now = LocalDateTime.now();
-
-        OAuthAuthorization authorization = new OAuthAuthorization();
-        authorization.setClientId(client.getClientId());
-        authorization.setUserId(principal.getName());
-        authorization.setScopes(String.join(" ", scopes));
-        authorization.setAuthorizationCode(code);
-        authorization.setAuthorizationCodeExpiresAt(now.plusMinutes(10));
-
-        authorizationRepository.save(authorization);
-
-        return OAuth2Authorization.builder()
-                .id(String.valueOf(authorization.getId()))
-                .clientId(client.getClientId())
-                .principal(principal)
-                .authorizationGrantType(OAuth2Constants.GRANT_TYPE_AUTHORIZATION_CODE)
-                .authorizationCode(code)
-                .authorizationCodeIssuedAt(now)
-                .authorizationCodeExpiresAt(authorization.getAuthorizationCodeExpiresAt())
-                .authorizedScopes(scopes)
-                .state(null)
-                .build();
-    }
-
-    private OAuth2Authorization convertToAuthorization(OAuthAuthorization authorization) {
-        return OAuth2Authorization.builder()
-                .id(String.valueOf(authorization.getId()))
-                .clientId(authorization.getClientId())
-                .authorizationGrantType(OAuth2Constants.GRANT_TYPE_AUTHORIZATION_CODE)
-                .authorizationCode(authorization.getAuthorizationCode())
-                .authorizedScopes(OAuth2Utils.parseScopes(authorization.getScopes()))
-                .state(authorization.getState())
-                .build();
-    }
-
-    private void validateBasicParameters(String responseType, String clientId, String redirectUri) {
-        if (!OAuth2Constants.RESPONSE_TYPE_CODE.equals(responseType)) {
-            throw new OAuth2AuthorizationException(
-                    OAuth2Constants.ERROR_UNSUPPORTED_RESPONSE_TYPE,
-                    "Response type must be 'code'",
-                    redirectUri,
-                    null
-            );
-        }
-
-        OAuthClient client = validateClient(clientId);
-        validateRedirectUri(client, redirectUri);
-    }
-
-    private void validateRedirectUri(OAuthClient client, String redirectUri) {
-        Set<String> allowedRedirectUris = OAuth2Utils.parseRedirectUris(client.getRedirectUris());
-        if (!allowedRedirectUris.contains(redirectUri)) {
-            throw new OAuth2AuthorizationException(
-                    OAuth2Constants.ERROR_INVALID_REQUEST,
-                    "Invalid redirect_uri",
-                    redirectUri,
-                    null
-            );
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
     }
 } 

@@ -93,6 +93,7 @@ public class OAuth2AuthorizationController {
                 model.addAttribute("scopes", result.getScopes());
                 model.addAttribute("state", result.getState());
                 model.addAttribute("redirectUri", result.getRedirectUri());
+                model.addAttribute("traceId", result.getTraceId());
                 return "consent";
 
             default:

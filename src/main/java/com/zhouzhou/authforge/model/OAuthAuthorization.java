@@ -65,8 +65,17 @@ public class OAuthAuthorization {
     @Column(name = "state", length = 256)
     private String state;
 
+    @Column(name = "redirect_uri", length = 1024)
+    private String redirectUri;
+
+    @Column(name = "response_type", length = 32)
+    private String responseType;
+
     @Column(name = "authorization_code_expires_at")
     private LocalDateTime authorizationCodeExpiresAt;
+
+    @Column(name = "trace_id", length = 256)
+    private String traceId;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

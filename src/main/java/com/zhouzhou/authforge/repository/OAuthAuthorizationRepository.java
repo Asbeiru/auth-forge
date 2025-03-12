@@ -32,4 +32,10 @@ public interface OAuthAuthorizationRepository extends JpaRepository<OAuthAuthori
      * @return number of deleted records
      */
     long deleteByAuthorizationCodeExpiresAtLessThan(LocalDateTime now);
+
+
+    // 添加根据 state 查询的方法
+    Optional<OAuthAuthorization> findByState(String state);
+
+    Optional<OAuthAuthorization> findByTraceId(String traceId);
 } 

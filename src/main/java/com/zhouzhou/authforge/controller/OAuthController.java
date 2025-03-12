@@ -31,7 +31,7 @@ public class OAuthController {
     private final OAuthAuthorizationRepository authorizationRepository;
     private final StringKeyGenerator codeGenerator = new Base64StringKeyGenerator(32);
 
-    @GetMapping("/oauth2/authorize")
+    @GetMapping("/oauth2/authorize/v1")
     public String authorize(
             @RequestParam("response_type") String responseType,
             @RequestParam("client_id") String clientId,

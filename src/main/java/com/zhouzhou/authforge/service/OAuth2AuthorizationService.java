@@ -55,23 +55,7 @@ public interface OAuth2AuthorizationService {
             Map<String, Object> additionalParameters,
             Authentication authentication);
 
-    /**
-     * 处理用户同意授权
-     * @param clientId 客户端ID
-     * @param redirectUri 重定向URI
-     * @param scope 请求的权限范围
-     * @param state 状态参数
-     * @param consent 用户同意结果
-     * @param authentication 用户认证信息
-     * @return 授权结果
-     */
-    AuthorizationResult handleAuthorizationConsent(
-            String clientId,
-            String redirectUri,
-            String scope,
-            String state,
-            String consent,
-            Authentication authentication);
+
 
     /**
      * 检查是否需要用户同意

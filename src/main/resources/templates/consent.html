@@ -80,7 +80,7 @@
             <input type="hidden" name="client_id" th:value="${client.clientId}">
             <input type="hidden" name="redirect_uri" th:value="${redirectUri}">
             <input type="hidden" name="scope" th:value="${#strings.listJoin(scopes, ' ')}">
-            <input type="hidden" name="state" th:value="${state}">
+            <input type="hidden" name="trace_id" th:value="${traceId}">
             <div class="buttons">
                 <button type="submit" name="consent" value="approve" class="approve">Approve</button>
                 <button type="submit" name="consent" value="deny" class="deny">Deny</button>
