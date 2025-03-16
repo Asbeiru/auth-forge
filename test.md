@@ -43,7 +43,7 @@ A. 测试授权端点（/oauth2/authorize）：
 ```bash
 # 1. 未登录状态下访问授权端点
 curl -v "
-http://localhost:9999/oauth2/authorize?response_type=code&client_id=test-client&redirect_uri=http://127.0.0.1:8080/callback&scope=read%20profile&state=xyz123
+http://localhost:9999/oauth2/authorize?response_type=code&client_id=client&redirect_uri=http://127.0.0.1:8080/callback&scope=read%20profile&state=xyz123
 "
 
 # 应该重定向到登录页面

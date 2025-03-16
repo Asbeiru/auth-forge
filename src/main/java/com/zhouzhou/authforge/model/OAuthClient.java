@@ -18,32 +18,32 @@ import java.util.stream.Collectors;
 
 /**
  * OAuth 2.0 客户端实体
- * 
+ * <p>
  * 存储 OAuth 2.0 客户端注册信息，实现 RFC 6749 Section 2
- * 
+ * <p>
  * 核心属性：
  * 1. 客户端标识：
- *    - client_id：客户端唯一标识
- *    - client_secret：客户端密钥
- *    - client_name：客户端名称
- * 
+ * - client_id：客户端唯一标识
+ * - client_secret：客户端密钥
+ * - client_name：客户端名称
+ * <p>
  * 2. 授权配置：
- *    - redirect_uris：允许的重定向URI列表
- *    - authorized_grant_types：支持的授权类型
- *    - scopes：允许的权限范围
- * 
+ * - redirect_uris：允许的重定向URI列表
+ * - authorized_grant_types：支持的授权类型
+ * - scopes：允许的权限范围
+ * <p>
  * 3. 令牌配置：
- *    - access_token_validity_seconds：访问令牌有效期
- *    - refresh_token_validity_seconds：刷新令牌有效期
- * 
+ * - access_token_validity_seconds：访问令牌有效期
+ * - refresh_token_validity_seconds：刷新令牌有效期
+ * <p>
  * 4. 安全配置：
- *    - auto_approve：是否自动批准授权
- *    - enabled：客户端是否启用
- * 
+ * - auto_approve：是否自动批准授权
+ * - enabled：客户端是否启用
+ * <p>
  * 客户端类型（RFC 6749 Section 2.1）：
  * - 机密客户端：能够安全存储客户端凭据
  * - 公开客户端：无法安全存储客户端凭据
- * 
+ *
  * @see RFC 6749 https://tools.ietf.org/html/rfc6749#section-2
  */
 @Entity
@@ -58,40 +58,33 @@ public class OAuthClient {
     /**
      * 客户端ID
      */
-    @Column(name = "client_id", nullable = false, unique = true, length = 100)
+    @Column(name = "client_id", nullable = false, unique = true)
     private String clientId;
 
     /**
      * 客户端密钥
      */
-    @Column(name = "client_secret", nullable = false, length = 200)
+    @Column(name = "client_secret", nullable = false)
     private String clientSecret;
 
     /**
      * 客户端名称
      */
-    @Column(name = "client_name", length = 200)
+    @Column(name = "client_name", nullable = false)
     private String clientName;
 
     /**
      * 客户端描述
      */
-    @Column(name = "description")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     /**
      * 客户端类型
      */
     @Column(name = "client_type", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private ClientType clientType = ClientType.CONFIDENTIAL;
+    private String clientType = "CONFIDENTIAL";
 
-    /**
-     * 令牌端点认证方法
-     */
-    @Column(name = "token_endpoint_auth_method", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private TokenEndpointAuthMethod tokenEndpointAuthMethod = TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 
     /**
      * 是否需要 PKCE
@@ -100,22 +93,10 @@ public class OAuthClient {
     private Boolean requireProofKey = false;
 
     /**
-     * 默认的 PKCE 挑战方法
+     * 是否需要用户授权
      */
-    @Column(name = "default_code_challenge_method")
-    private String defaultCodeChallengeMethod;
-
-    /**
-     * JWKS URI
-     */
-    @Column(name = "jwks_uri")
-    private String jwksUri;
-
-    /**
-     * 令牌端点
-     */
-    @Column(name = "token_endpoint")
-    private String tokenEndpoint;
+    @Column(name = "require_auth_consent", nullable = false)
+    private Boolean requireAuthConsent = true;
 
     /**
      * 重定向URI列表，以空格分隔
@@ -126,7 +107,7 @@ public class OAuthClient {
     /**
      * 授权范围列表，以空格分隔
      */
-    @Column(name = "scopes", columnDefinition = "TEXT")
+    @Column(name = "scopes", nullable = false, columnDefinition = "TEXT")
     private String scopes;
 
     /**
@@ -138,13 +119,13 @@ public class OAuthClient {
     /**
      * 访问令牌有效期
      */
-    @Column(name = "access_token_validity_seconds")
+    @Column(name = "access_token_validity_seconds", nullable = false)
     private Integer accessTokenValiditySeconds = 3600;
 
     /**
      * 刷新令牌有效期
      */
-    @Column(name = "refresh_token_validity_seconds")
+    @Column(name = "refresh_token_validity_seconds", nullable = false)
     private Integer refreshTokenValiditySeconds = 86400;
 
     /**
@@ -164,13 +145,6 @@ public class OAuthClient {
      */
     @Column(name = "client_authentication_methods", nullable = false)
     private String clientAuthenticationMethods = "client_secret_basic";
-
-    /**
-     * 默认的客户端认证方法
-     */
-    @Column(name = "default_authentication_method", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private ClientAuthenticationMethod defaultAuthenticationMethod = ClientAuthenticationMethod.CLIENT_SECRET_BASIC;
 
     /**
      * 获取重定向URI集合
@@ -229,7 +203,7 @@ public class OAuthClient {
     public Set<ClientAuthenticationMethod> getClientAuthenticationMethodSet() {
         return Arrays.stream(clientAuthenticationMethods.split(","))
                 .map(String::trim)
-                .map(ClientAuthenticationMethod::valueOf)
+                .map(ClientAuthenticationMethod::fromValue)
                 .collect(Collectors.toSet());
     }
 
@@ -246,14 +220,14 @@ public class OAuthClient {
      * 创建时间
      */
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     /**
      * 更新时间
      */
     @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @PrePersist
@@ -268,12 +242,6 @@ public class OAuthClient {
     }
 
     /**
-     * 公钥（用于JWT验证）
-     */
-    @Column(name = "public_key", columnDefinition = "TEXT")
-    private String publicKey;
-
-    /**
      * 是否重用刷新令牌
      */
     @Column(name = "reuse_refresh_tokens", nullable = false)
@@ -283,24 +251,24 @@ public class OAuthClient {
      * 检查客户端是否支持刷新令牌
      */
     public boolean isRefreshTokenEnabled() {
-        return authorizedGrantTypes != null && 
-               authorizedGrantTypes.contains("refresh_token");
+        return authorizedGrantTypes != null &&
+                authorizedGrantTypes.contains("refresh_token");
     }
 
     /**
      * 检查客户端是否支持指定的授权类型
      */
     public boolean isGrantTypeAllowed(String grantType) {
-        return authorizedGrantTypes != null && 
-               authorizedGrantTypes.contains(grantType);
+        return authorizedGrantTypes != null &&
+                authorizedGrantTypes.contains(grantType);
     }
 
     /**
      * 检查重定向URI是否有效
      */
     public boolean isRedirectUriValid(String redirectUri) {
-        return redirectUris != null && 
-               redirectUris.contains(redirectUri);
+        return redirectUris != null &&
+                redirectUris.contains(redirectUri);
     }
 
     /**
@@ -312,6 +280,7 @@ public class OAuthClient {
 
     /**
      * 获取访问令牌有效期
+     *
      * @return Duration 访问令牌有效期
      */
     public Duration getAccessTokenValidity() {
@@ -320,6 +289,7 @@ public class OAuthClient {
 
     /**
      * 获取刷新令牌有效期
+     *
      * @return Duration 刷新令牌有效期
      */
     public Duration getRefreshTokenValidity() {

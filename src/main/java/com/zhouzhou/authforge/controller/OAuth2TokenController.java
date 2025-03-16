@@ -23,10 +23,7 @@ public class OAuth2TokenController {
     private final OAuth2TokenService tokenService;
     private final TokenRequestSpecificationValidator validator;
 
-    @PostMapping(
-        consumes = "application/x-www-form-urlencoded",
-        produces = "application/json"
-    )
+    @PostMapping
     public ResponseEntity<TokenResponse> token(
             HttpServletRequest request,
             @RequestParam("grant_type") String grantType,

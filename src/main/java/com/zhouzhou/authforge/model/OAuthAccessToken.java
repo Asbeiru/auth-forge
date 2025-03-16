@@ -23,7 +23,7 @@ import java.util.UUID;
  * 3. 过期检查逻辑
  */
 @Entity
-@Table(name = "oauth_access_tokens")
+@Table(name = "oauth_tokens")
 @Getter
 @Setter
 @Builder
@@ -62,8 +62,8 @@ public class OAuthAccessToken {
     /**
      * 授权范围
      */
-    @Column(name = "scope")
-    private String scope;
+    @Column(name = "scopes")
+    private String scopes;
 
     /**
      * 访问令牌过期时间
@@ -127,9 +127,10 @@ public class OAuthAccessToken {
             .userId(authorization.getUserId())
             .accessToken(accessToken)
             .refreshToken(refreshToken)
-            .scope(authorization.getScope())
+            .scopes(authorization.getScope())
             .accessTokenExpiresAt(LocalDateTime.now().plusSeconds(client.getAccessTokenValiditySeconds()))
             .refreshTokenExpiresAt(refreshToken != null ? LocalDateTime.now().plusSeconds(client.getRefreshTokenValiditySeconds()) : null)
+            .status(TokenStatus.ACTIVE)
             .build();
     }
 
@@ -173,8 +174,8 @@ public class OAuthAccessToken {
      * 验证作用域
      */
     public boolean hasScope(String requiredScope) {
-        if (scope == null) return false;
-        return Set.of(scope.split(" ")).contains(requiredScope);
+        if (scopes == null) return false;
+        return Set.of(scopes.split(" ")).contains(requiredScope);
     }
 
     /**

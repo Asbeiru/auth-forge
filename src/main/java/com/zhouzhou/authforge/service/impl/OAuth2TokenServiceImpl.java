@@ -108,7 +108,7 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
                 .accessToken(accessToken.getAccessToken())
                 .tokenType("Bearer")
                 .expiresIn(client.getAccessTokenValiditySeconds().longValue())
-                .scope(accessToken.getScope());
+                .scope(accessToken.getScopes());
 
         if (accessToken.getRefreshToken() != null) {
             responseBuilder.refreshToken(accessToken.getRefreshToken());
@@ -133,8 +133,9 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
                         scopeString,
                         client.getAccessTokenValiditySeconds()
                 ))
-                .scope(scopeString)
+                .scopes(scopeString)
                 .accessTokenExpiresAt(accessTokenExpiresAt)
+                .status(OAuthAccessToken.TokenStatus.ACTIVE)
                 .build();
 
         // 3. 保存访问令牌
@@ -145,7 +146,7 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
                 .accessToken(accessToken.getAccessToken())
                 .tokenType("Bearer")
                 .expiresIn(client.getAccessTokenValiditySeconds().longValue())
-                .scope(accessToken.getScope())
+                .scope(accessToken.getScopes())
                 .build();
     }
 
@@ -209,7 +210,7 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
         // 5. 生成新的访问令牌
         String newAccessToken = tokenGenerator.generateAccessToken(
                 existingToken.getUserId(),  // 保持原有的subject
-                existingToken.getScope(),   // 保持原有的scope
+                existingToken.getScopes(),   // 保持原有的scope
                 client.getAccessTokenValiditySeconds()
         );
         String newRefreshToken = null;
@@ -228,11 +229,12 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
                 .refreshToken(newRefreshToken != null ? newRefreshToken : existingToken.getRefreshToken())
                 .clientId(client.getClientId())
                 .userId(existingToken.getUserId())
-                .scope(existingToken.getScope())
+                .scopes(existingToken.getScopes())
                 .accessTokenExpiresAt(LocalDateTime.now().plusSeconds(client.getAccessTokenValiditySeconds()))
                 .refreshTokenExpiresAt(newRefreshToken != null ?
                         LocalDateTime.now().plusSeconds(client.getRefreshTokenValiditySeconds()) :
                         existingToken.getRefreshTokenExpiresAt())
+                .status(OAuthAccessToken.TokenStatus.ACTIVE)
                 .build();
 
         accessTokenRepository.save(newToken);
@@ -243,7 +245,7 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
                 .tokenType("Bearer")
                 .expiresIn(client.getAccessTokenValiditySeconds().longValue())
                 .refreshToken(newToken.getRefreshToken())
-                .scope(newToken.getScope())
+                .scope(newToken.getScopes())
                 .build();
     }
 

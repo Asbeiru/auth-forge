@@ -3,22 +3,29 @@ CREATE DATABASE IF NOT EXISTS auth_forge;
 USE auth_forge;
 
 -- OAuth Clients table
-CREATE TABLE IF NOT EXISTS oauth_clients (
+DROP TABLE IF EXISTS oauth_clients;
+
+CREATE TABLE oauth_clients (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     client_id VARCHAR(100) NOT NULL UNIQUE,
     client_secret VARCHAR(200) NOT NULL,
     client_name VARCHAR(100) NOT NULL,
+    description TEXT,
     client_type VARCHAR(20) NOT NULL DEFAULT 'CONFIDENTIAL',
     client_authentication_methods VARCHAR(200) NOT NULL DEFAULT 'client_secret_basic',
     redirect_uris TEXT NOT NULL,
     scopes TEXT NOT NULL,
     authorized_grant_types VARCHAR(200) NOT NULL,
+    require_proof_key BOOLEAN NOT NULL DEFAULT FALSE,
+    require_auth_consent BOOLEAN NOT NULL DEFAULT TRUE,
+    reuse_refresh_tokens BOOLEAN NOT NULL DEFAULT TRUE,
     access_token_validity_seconds INT NOT NULL DEFAULT 3600,  -- 默认1小时
     refresh_token_validity_seconds INT NOT NULL DEFAULT 86400, -- 默认24小时
     auto_approve BOOLEAN NOT NULL DEFAULT FALSE,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_client_id (client_id)
 );
 
 -- OAuth Authorizations table
@@ -35,6 +42,7 @@ CREATE TABLE IF NOT EXISTS oauth_authorizations (
     redirect_uri VARCHAR(1024),
     trace_id VARCHAR(256),
     response_type VARCHAR(32),
+    status VARCHAR(32),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES oauth_clients(client_id),
@@ -53,8 +61,9 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
     client_id VARCHAR(100) NOT NULL,
     user_id VARCHAR(255) NOT NULL,
     scopes TEXT,
-    expires_at TIMESTAMP NOT NULL,
+    access_token_expires_at TIMESTAMP NOT NULL,
     refresh_token_expires_at TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES oauth_clients(client_id),

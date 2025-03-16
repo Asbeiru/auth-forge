@@ -75,17 +75,6 @@ public class OAuthAuthorization {
     @Column(name = "state")
     private String state;
 
-    /**
-     * 刷新令牌
-     */
-    @Column(name = "refresh_token", unique = true)
-    private String refreshToken;
-
-    /**
-     * 刷新令牌过期时间
-     */
-    @Column(name = "refresh_token_expires_at")
-    private LocalDateTime refreshTokenExpiresAt;
 
     /**
      * 追踪ID
@@ -127,17 +116,10 @@ public class OAuthAuthorization {
         return AuthorizationStatus.INVALIDATED.equals(this.status);
     }
 
-    /**
-     * 检查refresh_token是否已过期
-     */
-    public boolean isRefreshTokenExpired() {
-        return this.refreshTokenExpiresAt != null && 
-               this.refreshTokenExpiresAt.isBefore(LocalDateTime.now());
-    }
 
     /**
      * 使授权码失效
-     * 
+     * <p>
      * 注意：调用此方法后，需要在服务层保存实体的更改
      */
     public void markAsInvalidated() {
@@ -151,9 +133,9 @@ public class OAuthAuthorization {
      */
     public boolean isValid() {
         return status == AuthorizationStatus.ACTIVE &&
-               authorizationCode != null &&
-               authorizationCodeExpiresAt != null &&
-               authorizationCodeExpiresAt.isAfter(LocalDateTime.now());
+                authorizationCode != null &&
+                authorizationCodeExpiresAt != null &&
+                authorizationCodeExpiresAt.isAfter(LocalDateTime.now());
     }
 
     /**
@@ -163,20 +145,6 @@ public class OAuthAuthorization {
         return scopes;
     }
 
-    /**
-     * 获取刷新令牌
-     */
-    public String getRefreshToken() {
-        return this.refreshToken;
-    }
-
-    /**
-     * 设置刷新令牌
-     */
-    public void setRefreshToken(String refreshToken, LocalDateTime expiresAt) {
-        this.refreshToken = refreshToken;
-        this.refreshTokenExpiresAt = expiresAt;
-    }
 
     public enum AuthorizationStatus {
         ACTIVE,        // 活跃状态

@@ -46,7 +46,7 @@ public class PkceValidationService {
         String codeChallenge = authorization.getCodeChallenge();
 
         // 3. 根据客户端配置决定是否需要验证 PKCE
-        boolean isPublicClient = "none".equals(client.getTokenEndpointAuthMethod());
+        boolean isPublicClient = "none".equals(client.getClientAuthenticationMethods());
         boolean requireProofKey = isPublicClient || Boolean.TRUE.equals(client.getRequireProofKey());
 
         // 如果存在 code_challenge 或者需要 PKCE，则必须验证 code_verifier
