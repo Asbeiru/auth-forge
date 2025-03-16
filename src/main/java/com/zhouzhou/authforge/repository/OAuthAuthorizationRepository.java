@@ -8,6 +8,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * OAuth 2.0 授权记录仓库
+ */
 @Repository
 public interface OAuthAuthorizationRepository extends JpaRepository<OAuthAuthorization, Long> {
     
@@ -38,4 +41,9 @@ public interface OAuthAuthorizationRepository extends JpaRepository<OAuthAuthori
     Optional<OAuthAuthorization> findByState(String state);
 
     Optional<OAuthAuthorization> findByTraceId(String traceId);
+
+    /**
+     * 根据刷新令牌查找授权信息
+     */
+    Optional<OAuthAuthorization> findByRefreshToken(String refreshToken);
 } 

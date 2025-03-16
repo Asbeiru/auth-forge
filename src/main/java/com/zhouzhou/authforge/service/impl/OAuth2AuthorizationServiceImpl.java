@@ -2,6 +2,7 @@ package com.zhouzhou.authforge.service.impl;
 
 import com.zhouzhou.authforge.dto.AuthorizationResult;
 import com.zhouzhou.authforge.exception.OAuth2AuthorizationException;
+import com.zhouzhou.authforge.exception.OAuth2TokenException;
 import com.zhouzhou.authforge.model.OAuthAuthorization;
 import com.zhouzhou.authforge.model.OAuthClient;
 import com.zhouzhou.authforge.repository.OAuthAuthorizationRepository;
@@ -30,6 +31,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * OAuth 2.0 授权服务实现类
+ */
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -243,5 +247,47 @@ public class OAuth2AuthorizationServiceImpl implements OAuth2AuthorizationServic
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
+    }
+
+    @Override
+    public OAuthAuthorization validateAuthorizationCode(String code, String clientId, String redirectUri) {
+        // 1. 查找授权记录
+        OAuthAuthorization authorization = authorizationRepository.findByAuthorizationCode(code)
+            .orElseThrow(() -> new OAuth2TokenException(
+                "invalid_grant",
+                "Invalid authorization code"
+            ));
+
+        // 2. 验证授权码是否有效
+        if (!authorization.isValid()) {
+            throw new OAuth2TokenException(
+                "invalid_grant",
+                "Authorization code is invalid or has been used"
+            );
+        }
+
+        // 3. 验证客户端ID是否匹配
+        if (!authorization.getClientId().equals(clientId)) {
+            throw new OAuth2TokenException(
+                "invalid_grant",
+                "Client ID mismatch"
+            );
+        }
+
+        // 4. 验证重定向URI是否匹配
+        if (!authorization.getRedirectUri().equals(redirectUri)) {
+            throw new OAuth2TokenException(
+                "invalid_grant",
+                "Redirect URI mismatch"
+            );
+        }
+
+        return authorization;
+    }
+
+    @Override
+    public void invalidateAuthorization(OAuthAuthorization authorization) {
+        authorization.markAsInvalidated();
+        authorizationRepository.save(authorization);
     }
 } 

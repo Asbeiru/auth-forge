@@ -1,91 +1,185 @@
 package com.zhouzhou.authforge.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
 /**
- * OAuth 2.0 授权信息实体
- * 
- * 存储 OAuth 2.0 授权码授权类型的授权信息，实现 RFC 6749 Section 4.1.2
- * 
- * 核心属性：
- * 1. 授权码 (authorization_code)：
- *    - 随机生成的字符串
- *    - 用于交换访问令牌
- *    - 短期有效（通常10分钟）
- * 
- * 2. PKCE 支持 (RFC 7636)：
- *    - code_challenge：客户端提供的代码挑战
- *    - code_challenge_method：代码挑战方法（plain 或 S256）
- * 
- * 3. 授权信息：
- *    - client_id：关联的客户端标识
- *    - user_id：授权的用户标识
- *    - scopes：授权的权限范围
- *    - state：客户端状态参数
- * 
- * 4. 时间控制：
- *    - authorization_code_expires_at：授权码过期时间
- *    - created_at：创建时间
- *    - updated_at：更新时间
- * 
- * @see RFC 6749 https://tools.ietf.org/html/rfc6749#section-4.1.2
- * @see RFC 7636 https://tools.ietf.org/html/rfc7636
+ * OAuth 2.0 授权记录
  */
-@Data
 @Entity
 @Table(name = "oauth_authorizations")
+@Getter
+@Setter
 public class OAuthAuthorization {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "client_id", nullable = false, length = 100)
+    /**
+     * 客户端ID
+     */
+    @Column(name = "client_id", nullable = false)
     private String clientId;
 
+    /**
+     * 用户ID
+     */
     @Column(name = "user_id", nullable = false)
     private String userId;
 
-    @Column(name = "scopes", columnDefinition = "TEXT")
-    private String scopes;
-
-    @Column(name = "authorization_code", length = 256)
+    /**
+     * 授权码
+     */
+    @Column(name = "authorization_code", unique = true)
     private String authorizationCode;
 
-    @Column(name = "code_challenge", length = 256)
-    private String codeChallenge;
-
-    @Column(name = "code_challenge_method", length = 32)
-    private String codeChallengeMethod;
-
-    @Column(name = "state", length = 256)
-    private String state;
-
-    @Column(name = "redirect_uri", length = 1024)
-    private String redirectUri;
-
-    @Column(name = "response_type", length = 32)
-    private String responseType;
-
+    /**
+     * 授权码过期时间
+     */
     @Column(name = "authorization_code_expires_at")
     private LocalDateTime authorizationCodeExpiresAt;
 
-    @Column(name = "trace_id", length = 256)
+    /**
+     * PKCE code_challenge
+     */
+    @Column(name = "code_challenge")
+    private String codeChallenge;
+
+    /**
+     * PKCE code_challenge_method
+     */
+    @Column(name = "code_challenge_method")
+    private String codeChallengeMethod;
+
+    /**
+     * 授权范围
+     */
+    @Column(name = "scopes")
+    private String scopes;
+
+    /**
+     * 重定向URI
+     */
+    @Column(name = "redirect_uri", nullable = false)
+    private String redirectUri;
+
+    /**
+     * 状态参数
+     */
+    @Column(name = "state")
+    private String state;
+
+    /**
+     * 刷新令牌
+     */
+    @Column(name = "refresh_token", unique = true)
+    private String refreshToken;
+
+    /**
+     * 刷新令牌过期时间
+     */
+    @Column(name = "refresh_token_expires_at")
+    private LocalDateTime refreshTokenExpiresAt;
+
+    /**
+     * 追踪ID
+     */
+    @Column(name = "trace_id")
     private String traceId;
 
+    /**
+     * 响应类型
+     */
+    @Column(name = "response_type")
+    private String responseType;
+
+    /**
+     * 授权码状态
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private AuthorizationStatus status = AuthorizationStatus.ACTIVE;
+
+    /**
+     * 创建时间
+     */
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * 更新时间
+     */
     @UpdateTimestamp
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", referencedColumnName = "client_id", insertable = false, updatable = false)
-    private OAuthClient oauthClient;
+    /**
+     * 检查refresh_token是否已失效
+     */
+    public boolean isInvalidated() {
+        return AuthorizationStatus.INVALIDATED.equals(this.status);
+    }
+
+    /**
+     * 检查refresh_token是否已过期
+     */
+    public boolean isRefreshTokenExpired() {
+        return this.refreshTokenExpiresAt != null && 
+               this.refreshTokenExpiresAt.isBefore(LocalDateTime.now());
+    }
+
+    /**
+     * 使授权码失效
+     * 
+     * 注意：调用此方法后，需要在服务层保存实体的更改
+     */
+    public void markAsInvalidated() {
+        this.status = AuthorizationStatus.INVALIDATED;
+        this.authorizationCode = null;  // 清除授权码
+        this.authorizationCodeExpiresAt = LocalDateTime.now();  // 设置为当前时间，确保过期
+    }
+
+    /**
+     * 检查授权码是否有效
+     */
+    public boolean isValid() {
+        return status == AuthorizationStatus.ACTIVE &&
+               authorizationCode != null &&
+               authorizationCodeExpiresAt != null &&
+               authorizationCodeExpiresAt.isAfter(LocalDateTime.now());
+    }
+
+    /**
+     * 获取授权范围
+     */
+    public String getScope() {
+        return scopes;
+    }
+
+    /**
+     * 获取刷新令牌
+     */
+    public String getRefreshToken() {
+        return this.refreshToken;
+    }
+
+    /**
+     * 设置刷新令牌
+     */
+    public void setRefreshToken(String refreshToken, LocalDateTime expiresAt) {
+        this.refreshToken = refreshToken;
+        this.refreshTokenExpiresAt = expiresAt;
+    }
+
+    public enum AuthorizationStatus {
+        ACTIVE,        // 活跃状态
+        INVALIDATED    // 已失效
+    }
 } 
