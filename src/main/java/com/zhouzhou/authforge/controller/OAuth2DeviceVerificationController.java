@@ -41,7 +41,7 @@ public class OAuth2DeviceVerificationController {
      * 如果提供了 user_code，则自动填充并准备自动提交。
      * 实现 RFC 8628 中的 verification_uri_complete 功能。
      *
-     * @param userCode 用户验证码（可选）
+     * @param user_code 用户验证码（可选）
      * @param model Spring MVC Model
      * @return 设备验证页面
      */
