@@ -35,3 +35,10 @@ auth:
       access-token-expiration-minutes: 30
       # 刷新令牌过期时间（分钟）
       refresh-token-expiration-minutes: 1440
+  device:
+    # 设备验证页面URI
+    verification-uri: http://localhost:9999/device/verify
+    # 设备授权过期时间（秒）
+    expires-in: 1800
+    # 轮询间隔（秒）
+    interval: 5

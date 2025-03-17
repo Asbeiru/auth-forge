@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备授权验证 - AuthForge</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body class="bg-light">
+    <div class="container">
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">设备授权验证</h4>
+                    </div>
+                    <div class="card-body">
+                        <!-- 错误提示 -->
+                        <div th:if="${error}" class="alert alert-danger" role="alert">
+                            <span th:text="${error}">错误信息</span>
+                        </div>
+
+                        <!-- 自动提交表单 -->
+                        <div th:if="${autoSubmit}" class="text-center mb-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">正在处理您的授权请求...</p>
+                        </div>
+
+                        <form th:action="@{/oauth2/device/verify}" method="post" class="needs-validation" 
+                              th:id="${autoSubmit} ? 'autoSubmitForm' : 'verificationForm'" novalidate>
+                            <div class="mb-3">
+                                <label for="user_code" class="form-label">用户验证码</label>
+                                <input type="text" 
+                                       class="form-control form-control-lg text-center" 
+                                       id="user_code" 
+                                       name="user_code" 
+                                       th:value="${userCode}"
+                                       pattern="[A-Z]{4}-[A-Z]{4}"
+                                       placeholder="XXXX-XXXX"
+                                       th:readonly="${autoSubmit}"
+                                       required>
+                                <div class="invalid-feedback">
+                                    请输入有效的验证码（格式：XXXX-XXXX）
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2" th:unless="${autoSubmit}">
+                                <button type="submit" name="action" value="approve" class="btn btn-primary btn-lg">
+                                    批准授权
+                                </button>
+                                <button type="submit" name="action" value="deny" class="btn btn-outline-danger btn-lg">
+                                    拒绝授权
+                                </button>
+                            </div>
+
+                            <!-- 自动提交的隐藏按钮 -->
+                            <input th:if="${autoSubmit}" type="hidden" name="action" value="approve">
+                        </form>
+                    </div>
+                    <div class="card-footer text-muted">
+                        <small>
+                            请输入您在设备上看到的验证码。验证码由 8 位大写字母组成，格式为 XXXX-XXXX。
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+    <script th:inline="javascript">
+        // 表单验证
+        (function () {
+            'use strict'
+            var forms = document.querySelectorAll('.needs-validation')
+            Array.prototype.slice.call(forms).forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+        })()
+
+        // 自动格式化输入
+        document.getElementById('user_code').addEventListener('input', function(e) {
+            let value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
+            if (value.length > 4 && !value.includes('-')) {
+                value = value.slice(0, 4) + '-' + value.slice(4);
+            }
+            if (value.length > 9) {
+                value = value.slice(0, 9);
+            }
+            e.target.value = value;
+        });
+
+        // 自动提交表单
+        const autoSubmit = /*[[${autoSubmit}]]*/ false;
+        const autoSubmitDelay = /*[[${autoSubmitDelay}]]*/ 2000;
+        
+        if (autoSubmit) {
+            const progressBar = document.createElement('div');
+            progressBar.className = 'progress mt-3';
+            progressBar.innerHTML = '<div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>';
+            document.querySelector('.spinner-border').parentElement.appendChild(progressBar);
+
+            const progressBarInner = progressBar.querySelector('.progress-bar');
+            const startTime = Date.now();
+            
+            const updateProgress = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(100, (elapsed / autoSubmitDelay) * 100);
+                progressBarInner.style.width = progress + '%';
+                
+                if (elapsed < autoSubmitDelay) {
+                    requestAnimationFrame(updateProgress);
+                }
+            };
+
+            updateProgress();
+
+            setTimeout(function() {
+                document.getElementById('autoSubmitForm').submit();
+            }, autoSubmitDelay);
+        }
+    </script>
+</body>
+</html> 

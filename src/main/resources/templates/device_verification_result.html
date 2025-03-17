@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备授权结果 - AuthForge</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body class="bg-light">
+    <div class="container">
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">设备授权结果</h4>
+                    </div>
+                    <div class="card-body text-center">
+                        <!-- 授权成功 -->
+                        <div th:if="${status == T(com.zhouzhou.authforge.model.DeviceAuthorizationStatus).APPROVED}">
+                            <div class="mb-4">
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                            </div>
+                            <h3 class="text-success mb-3">授权成功</h3>
+                            <p class="lead">
+                                您已成功授权设备访问。<br>
+                                请返回设备继续操作。
+                            </p>
+                        </div>
+
+                        <!-- 授权拒绝 -->
+                        <div th:if="${status == T(com.zhouzhou.authforge.model.DeviceAuthorizationStatus).DENIED}">
+                            <div class="mb-4">
+                                <i class="bi bi-x-circle-fill text-danger" style="font-size: 4rem;"></i>
+                            </div>
+                            <h3 class="text-danger mb-3">授权已拒绝</h3>
+                            <p class="lead">
+                                您已拒绝设备访问请求。<br>
+                                设备将无法访问您的账户。
+                            </p>
+                        </div>
+
+                        <div class="mt-4">
+                            <p class="text-muted">
+                                验证码：<span th:text="${userCode}" class="font-monospace">XXXX-XXXX</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-grid">
+                            <a href="javascript:window.close();" class="btn btn-outline-secondary">
+                                关闭窗口
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+</body>
+</html> 
