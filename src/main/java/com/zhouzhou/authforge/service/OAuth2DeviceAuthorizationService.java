@@ -3,6 +3,8 @@ package com.zhouzhou.authforge.service;
 import com.zhouzhou.authforge.dto.DeviceAuthorizationRequest;
 import com.zhouzhou.authforge.dto.DeviceAuthorizationResponse;
 import com.zhouzhou.authforge.model.DeviceAuthorizationStatus;
+import com.zhouzhou.authforge.model.OAuthClient;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 
 /**
@@ -19,6 +21,15 @@ import org.springframework.http.ResponseEntity;
  * @since 1.0.0
  */
 public interface OAuth2DeviceAuthorizationService {
+
+    /**
+     * 验证客户端凭据。
+     *
+     * @param request HTTP 请求对象，包含客户端认证信息
+     * @return 认证成功的客户端信息
+     * @throws OAuth2DeviceAuthorizationException 当客户端认证失败时
+     */
+    OAuthClient authenticateClient(HttpServletRequest request);
 
     /**
      * 处理设备授权请求。

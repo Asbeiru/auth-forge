@@ -9,6 +9,7 @@ import com.zhouzhou.authforge.model.OAuthClient;
 import com.zhouzhou.authforge.repository.DeviceAuthorizationRepository;
 import com.zhouzhou.authforge.security.ClientAuthenticatorChain;
 import com.zhouzhou.authforge.service.OAuth2DeviceAuthorizationService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -59,22 +60,30 @@ public class OAuth2DeviceAuthorizationServiceImpl implements OAuth2DeviceAuthori
     }
 
     @Override
+    public OAuthClient authenticateClient(HttpServletRequest request) {
+        try {
+            return clientAuthenticatorChain.authenticate(request);
+        } catch (Exception e) {
+            log.warn("Client authentication failed: {}", e.getMessage());
+            throw new OAuth2DeviceAuthorizationException(
+                "invalid_client",
+                "Client authentication failed: " + e.getMessage()
+            );
+        }
+    }
+
+    @Override
     @Transactional
     public ResponseEntity<DeviceAuthorizationResponse> authorizeDevice(DeviceAuthorizationRequest request) {
         try {
-            // 1. 验证客户端凭据
-            OAuthClient client = clientAuthenticatorChain.authenticate(request.getRequest());
+            // 使用已认证的客户端
+            OAuthClient client = request.getAuthenticatedClient();
             
-            // 2. 验证请求中的 client_id 与认证的客户端是否匹配
-            if (!client.getClientId().equals(request.getClientId())) {
-                throw new OAuth2DeviceAuthorizationException("invalid_client", "Client ID mismatch");
-            }
-
-            // 3. 生成设备验证码和用户验证码
+            // 生成设备验证码和用户验证码
             String deviceCode = generateDeviceCode();
             String userCode = generateUserCode();
 
-            // 4. 存储验证码信息
+            // 存储验证码信息
             DeviceAuthorizationEntity entity = new DeviceAuthorizationEntity();
             entity.setDeviceCode(deviceCode);
             entity.setUserCode(userCode);
@@ -86,7 +95,7 @@ public class OAuth2DeviceAuthorizationServiceImpl implements OAuth2DeviceAuthori
             
             deviceAuthorizationRepository.save(entity);
 
-            // 5. 构建响应
+            // 构建响应
             DeviceAuthorizationResponse.DeviceAuthorizationResponseBuilder builder = 
                 DeviceAuthorizationResponse.builder()
                     .deviceCode(deviceCode)

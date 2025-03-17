@@ -1,6 +1,9 @@
 package com.zhouzhou.authforge.controller;
 
 import com.zhouzhou.authforge.dto.DeviceAuthorizationRequest;
+import com.zhouzhou.authforge.dto.DeviceAuthorizationResponse;
+import com.zhouzhou.authforge.exception.OAuth2DeviceAuthorizationException;
+import com.zhouzhou.authforge.model.OAuthClient;
 import com.zhouzhou.authforge.service.OAuth2DeviceAuthorizationService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +13,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * OAuth 2.0 设备授权端点的 Spring 实现，遵循
@@ -81,12 +88,61 @@ public class OAuth2DeviceAuthorizationController {
             @RequestParam("client_id") String clientId,
             @RequestParam(value = "scope", required = false) String scope) {
         
-        DeviceAuthorizationRequest deviceRequest = DeviceAuthorizationRequest.builder()
-            .request(request)
-            .clientId(clientId)
-            .scope(scope)
-            .build();
-        
-        return deviceAuthorizationService.authorizeDevice(deviceRequest);
+        try {
+            // 1. 验证客户端凭据
+            OAuthClient authenticatedClient = deviceAuthorizationService.authenticateClient(request);
+            
+            // 2. 验证请求中的 client_id 与认证的客户端是否匹配
+            if (!authenticatedClient.getClientId().equals(clientId)) {
+                log.warn("Client ID mismatch: requested={}, authenticated={}", clientId, authenticatedClient.getClientId());
+                return ResponseEntity.badRequest()
+                    .body(DeviceAuthorizationResponse.builder()
+                        .error("invalid_client")
+                        .errorDescription("Client ID mismatch")
+                        .build());
+            }
+
+            // 3. 验证 scope
+            if (scope != null && !scope.isEmpty()) {
+                Set<String> requestedScopes = new HashSet<>(Arrays.asList(scope.split(" ")));
+                Set<String> allowedScopes = authenticatedClient.getScopeSet();
+                
+                // 检查请求的 scope 是否都在允许的范围内
+                if (!allowedScopes.containsAll(requestedScopes)) {
+                    log.warn("Invalid scope requested: {} for client: {}", scope, clientId);
+                    return ResponseEntity.badRequest()
+                        .body(DeviceAuthorizationResponse.builder()
+                            .error("invalid_scope")
+                            .errorDescription("Requested scope is not allowed for this client")
+                            .build());
+                }
+            }
+
+            // 4. 构建设备授权请求
+            DeviceAuthorizationRequest deviceRequest = DeviceAuthorizationRequest.builder()
+                .request(request)
+                .clientId(clientId)
+                .scope(scope)
+                .authenticatedClient(authenticatedClient)
+                .build();
+            
+            // 5. 处理设备授权请求
+            return deviceAuthorizationService.authorizeDevice(deviceRequest);
+            
+        } catch (OAuth2DeviceAuthorizationException e) {
+            log.warn("Device authorization failed: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                .body(DeviceAuthorizationResponse.builder()
+                    .error(e.getError())
+                    .errorDescription(e.getErrorDescription())
+                    .build());
+        } catch (Exception e) {
+            log.error("Unexpected error during device authorization", e);
+            return ResponseEntity.internalServerError()
+                .body(DeviceAuthorizationResponse.builder()
+                    .error("server_error")
+                    .errorDescription("An unexpected error occurred")
+                    .build());
+        }
     }
 } 

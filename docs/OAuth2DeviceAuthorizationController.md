@@ -60,3 +60,42 @@
 ✅ **允许动态配置 `verification_uri`，适应不同环境**。  
 
 🚀 **使用这个优化提示，让 Cursor 补充 `Device Authorization` 相关的数据库脚本！**
+
+设备端应该仅轮询 /oauth2/token 端点
+设备端的正确轮询流程：
+
+设备向 /oauth2/device_authorization 端点请求 device_code 和 user_code。
+设备端 按照 interval 时间间隔，轮询 /oauth2/token：
+http
+
+复制
+POST /oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=device_code
+device_code=GXC123ABC
+client_id=client123
+服务器返回不同状态：
+授权未完成：
+json
+
+复制
+{
+  "error": "authorization_pending"
+}
+轮询过快：
+json
+
+复制
+{
+  "error": "slow_down"
+}
+授权成功：
+json
+
+复制
+{
+  "access_token": "abc123",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
