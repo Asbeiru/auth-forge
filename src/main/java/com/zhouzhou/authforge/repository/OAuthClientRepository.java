@@ -16,10 +16,14 @@ public interface OAuthClientRepository extends JpaRepository<OAuthClient, Long> 
      */
     Optional<OAuthClient> findByClientId(String clientId);
     
+
+
+
     /**
-     * Check if client exists by client ID
-     * @param clientId the client ID
-     * @return true if client exists
+     * 检查初始访问令牌是否存在
+     *
+     * @param initialAccessToken 初始访问令牌
+     * @return 如果存在则返回true
      */
-    boolean existsByClientId(String clientId);
+    boolean existsByInitialAccessToken(String initialAccessToken);
 } 

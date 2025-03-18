@@ -147,6 +147,12 @@ public class OAuthClient {
     private String clientAuthenticationMethods = "client_secret_basic";
 
     /**
+     * 初始访问令牌（用于受控客户端注册）
+     */
+    @Column(name = "initial_access_token", nullable = true)
+    private String initialAccessToken;
+
+    /**
      * 获取重定向URI集合
      */
     public Set<String> getRedirectUriSet() {

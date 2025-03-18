@@ -42,3 +42,24 @@ auth:
     expires-in: 1800
     # 轮询间隔（秒）
     interval: 5
+  server:
+    require-initial-access-token: true  # 是否要求初始访问令牌
+    issuer: http://localhost:9999       # 使用HTTP
+    authorization-endpoint: ${auth.server.issuer}/oauth2/authorize
+    token-endpoint: ${auth.server.issuer}/oauth2/token
+    device-authorization-endpoint: ${auth.server.issuer}/oauth2/device_authorization
+    revocation-endpoint: ${auth.server.issuer}/oauth2/revoke
+    introspection-endpoint: ${auth.server.issuer}/oauth2/introspect
+    jwks-uri: ${auth.server.issuer}/oauth2/jwks
+    service-documentation: ${auth.server.issuer}/docs
+    registration:
+      rate-limit:
+        enabled: true                   # 是否启用速率限制
+        max-attempts: 10                # 每个IP每小时最大尝试次数
+      allowed-redirect-schemes:         # 允许的重定向URI方案
+        - http                         # 开发环境允许HTTP
+        - https                        # 同时支持HTTPS
+        - http://localhost             # 本地开发环境
+    client-secret:
+      expires-in: 31536000  # 客户端密钥有效期（秒），默认1年
+      never-expires: false  # 是否永不过期，设置为true时client_secret_expires_at将为0
