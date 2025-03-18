@@ -1,12 +1,8 @@
-如果你的项目命名为 **`AuthForge`**，你需要一个 **清晰、结构化、有吸引力的 README**，让用户（或学生）能快速理解 **OAuth 2.0 + OIDC 授权服务器** 的作用、安装方式以及如何使用它。
 
-下面是一个完整的 **README.md** 模板，你可以直接使用或修改：
-
----
 
 # **AuthForge - OAuth 2.0 + OIDC 授权服务器 🔐**
 
-🚀 **AuthForge** 是一个基于 **Spring Boot** 构建的 **OAuth 2.0 + OIDC（OpenID Connect）** 授权服务器，旨在提供 **身份认证** 和 **授权管理**，适用于教学和学习目的。
+🚀 **AuthForge** 是一个基于 **Spring Boot** 构建的 **OAuth 2.0 + OIDC（OpenID Connect）** 授权服务器，旨在提供 **身份认证** 和 **授权管理**。
 
 > 🌟 **学习 OAuth 2.0 和 OIDC** 的最佳实践！
 
@@ -81,17 +77,7 @@ curl -X POST "http://localhost:9000/oauth2/token" \
      -d "grant_type=authorization_code&code=<AUTH_CODE>&redirect_uri=http://localhost:8080/callback&client_id=my-client&client_secret=my-secret"
 ```
 
----
 
-## **📜 教学内容**
-AuthForge 适合作为 **OAuth 2.0 + OIDC 教学项目**，涵盖：
-- ✅ OAuth 2.0 授权码模式、客户端凭据模式
-- ✅ OpenID Connect（OIDC）身份认证
-- ✅ JWT 令牌管理与验证
-- ✅ Spring Authorization Server 配置与扩展
-- ✅ OAuth 2.0 客户端示例
-
----
 
 ## **⚙️ 配置**
 ### **🔧 `application.yml` 配置**
@@ -125,7 +111,6 @@ spring:
 ---
 
 ## **📞 联系方式**
-📧 Email: `your-email@example.com`
 🐙 GitHub: [Asbeiru](https://github.com/Asbeiru)
 
 如果你喜欢这个项目，欢迎 **Star ⭐** 支持！🚀🚀🚀
